@@ -1,5 +1,5 @@
 from glob import glob
-from os.path import splitext
+from os.path import splitext, basename, dirname
 from os import makedirs, rename
 
 import wordninja
@@ -9,9 +9,27 @@ import wordninja
 EXTENSIONS = ('.pdf', '.epub', '.mobi', '.zip')
 
 
-def create_folder_name(words):
-    """ Concatenate words to create the folder name. """
+def create_name(words):
+    """ Concatenate words to create the title name. """
     return ' '.join(words).title()
+
+
+def create_path(file, name):
+    # Get extension
+    ext = splitext(file)[-1]
+    # Create name.
+    file_name = create_name(name)
+    # Get path to the file.
+    path = dirname(file)
+    # If the folder already exist, use it.
+    if basename(path) == file_name:
+        return f'{path}\\{file_name}{ext}'
+    # If the this is the first level of folders, create a new one with the file name.
+    elif path == '':
+        return f'{file_name}\\{file_name}{ext}'
+    # If this is not the  first level of folders and the folder already exists, create a new one with the file name.
+    else:
+        return f'{path}\\{file_name}\\{file_name}{ext}'
 
 
 def create_folder(folder):
@@ -19,19 +37,28 @@ def create_folder(folder):
     return makedirs(folder, exist_ok=True)
 
 
-# Look for all files in the folder and check if they match the expected extensions.
-files = [file for file in glob('*') if splitext(file)[-1] in EXTENSIONS]
-# Split folders word.
-names = [wordninja.split(splitext(file)[0]) for file in files]
-# If the exist the same name without the last word, it is probably a supplement, video or something else like  it.
-# Then drop the last word.
-names = [words[:-1] if words[:-1] in names else words for words in names]
-# Create folders and move files.
-for file, name in zip(files, names):
-    # Create folder.
-    folder_name = create_folder_name(name)
-    create_folder(folder_name)
-    # Move file.
-    new_file_name = f'{folder_name}\\{file}'
-    print(new_file_name)
-    rename(file, new_file_name)
+def organize():
+    """ Organize files in its folders. """
+    # Look for all files in the folder and check if they match the expected extensions.
+    files = [file for file in glob('**/*', recursive=True) if splitext(file)[-1] in EXTENSIONS]
+    # Split folders word.
+    names = [wordninja.split(splitext(basename(file))[0]) for file in files]
+    # If the exist the same name without the last word, it is probably a supplement, video or something else like  it.
+    # Then drop the last word.
+    names = [words[:-1] if words[:-1] in names else words for words in names]
+    # Loop through all the files and names
+    for file, name in zip(files, names):
+        # Get the new path.
+        path = create_path(file, name)
+        # Create folder.
+        create_folder(dirname(path))
+        print(path)
+        # Move file.
+        try:
+            rename(file, path)
+        except FileExistsError:
+            continue
+
+
+if __name__ == '__main__':
+    organize()
